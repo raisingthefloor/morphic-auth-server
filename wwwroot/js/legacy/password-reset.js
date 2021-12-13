@@ -12,7 +12,7 @@ $(function () {
   formValidation(form, () => {
     return getRecaptchaToken("requestpasswordreset").then(token => {
       return resetPassword(email.value, token).then(() => {
-        sessionStorage.setItem("loginMessage", "Instructions to recover your password have been emailed to you.");
+        sessionStorage.setItem("successMessage", "Instructions to recover your password have been emailed to you.");
         location.href = config.pages.login;
       });
     });
