@@ -1,0 +1,260 @@
+body {
+  margin: 0;
+}
+
+#top {
+  border-bottom: 2px solid #002957;
+  padding: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+#top .headerTitle {
+  display: inline;
+  color: #002957;
+  margin-left: 0.8em;
+  font-size: 22px;
+}
+
+#top header {
+  flex-grow: 1;
+}
+
+#top .logo {
+  margin-left: 1rem;
+  height: 2.4rem;
+}
+
+template, template * {
+  display: none;
+}
+
+/* Skip to content link - off-screen until focused */
+.contentLink {
+  font-size: larger;
+  background-color: white;
+  padding: 2px;
+  position: absolute;
+  z-index: 100;
+  transform: translateX(-100%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .contentLink:focus {
+    transition: transform 250ms ease-out;
+  }
+}
+
+.contentLink:not(.screenReader):focus-visible {
+  transform: translateX(0);
+}
+
+#PageContainer {
+  /* put footer at the bottom of the view */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 0;
+  visibility: visible !important;
+}
+
+#PageContainer #PageContent, #PageContainer #ContentLoader {
+  flex-grow: 1;
+}
+
+/* Un-hide the content when the css is loaded */
+body.loaded #PageContent {
+  visibility: unset !important;
+}
+
+/* Hide empty alert boxes */
+.alert:empty {
+  display: none;
+}
+
+.input-field {
+  position: relative;
+}
+
+.input-field input:placeholder-shown ~ .invalid-feedback:not(.required),
+.input-field input:not(:placeholder-shown) ~ .invalid-feedback.required {
+  /* Show either the "required" or validation message, for an invalid input */
+  display: none;
+}
+
+.input-field input ~ .invalid-feedback.invalid-placeholder {
+  display: block !important;
+}
+
+.input-field.was-validated input:invalid ~ .invalid-feedback.invalid-placeholder, .input-field .was-validated input:invalid ~ .invalid-feedback.invalid-placeholder {
+  /* Hide the validation message placeholder when the real message is displayed */
+  display: none !important;
+}
+
+.input-field .toggle-password {
+  display: none;
+}
+
+.input-field input.input-password {
+  background-position: right calc(1.5em + 0.75rem) center !important;
+}
+
+.input-field input.input-password ~ .toggle-password {
+  display: block;
+  position: absolute;
+  right: 0;
+  float: right;
+  padding: calc(0.375rem + 1px) 0.75rem;
+  transform: translateY(-100%);
+}
+
+.input-field input.input-password ~ .toggle-password img {
+  vertical-align: text-bottom;
+}
+
+.input-field input.input-password[type='password'] ~ .toggle-password .show-password {
+  display: none;
+}
+
+.input-field input.input-password:not([type='password']) ~ .toggle-password .hide-password {
+  display: none;
+}
+
+/* Hide the recaptcha badge, unless it's required. */
+body:not(.show-recaptcha) .grecaptcha-badge {
+  visibility: hidden;
+}
+
+/* bootstrap button color overrides */
+.btn-primary {
+  color: #fff;
+  background-color: #028004;
+  border-color: #028004;
+}
+
+.btn-primary:hover {
+  color: #fff;
+  background-color: #026d03;
+  border-color: #026603;
+}
+
+.btn-check:focus + .btn-primary, .btn-primary:focus {
+  color: #fff;
+  background-color: #026d03;
+  border-color: #026603;
+  box-shadow: 0 0 0 0.25rem rgba(40, 147, 42, 0.5);
+}
+
+.btn-check:checked + .btn-primary,
+.btn-check:active + .btn-primary, .btn-primary:active, .btn-primary.active,
+.show > .btn-primary.dropdown-toggle {
+  color: #fff;
+  background-color: #026603;
+  border-color: #026003;
+}
+
+.btn-check:checked + .btn-primary:focus,
+.btn-check:active + .btn-primary:focus, .btn-primary:active:focus, .btn-primary.active:focus,
+.show > .btn-primary.dropdown-toggle:focus {
+  box-shadow: 0 0 0 0.25rem rgba(40, 147, 42, 0.5);
+}
+
+.btn-primary:disabled, .btn-primary.disabled {
+  color: #fff;
+  background-color: #028004;
+  border-color: #028004;
+}
+
+.btn-secondary {
+  color: #fff;
+  background-color: #002957;
+  border-color: #002957;
+}
+
+.btn-secondary:hover {
+  color: #fff;
+  background-color: #00234a;
+  border-color: #002146;
+}
+
+.btn-check:focus + .btn-secondary, .btn-secondary:focus {
+  color: #fff;
+  background-color: #00234a;
+  border-color: #002146;
+  box-shadow: 0 0 0 0.25rem rgba(38, 73, 112, 0.5);
+}
+
+.btn-check:checked + .btn-secondary,
+.btn-check:active + .btn-secondary, .btn-secondary:active, .btn-secondary.active,
+.show > .btn-secondary.dropdown-toggle {
+  color: #fff;
+  background-color: #002146;
+  border-color: #001f41;
+}
+
+.btn-check:checked + .btn-secondary:focus,
+.btn-check:active + .btn-secondary:focus, .btn-secondary:active:focus, .btn-secondary.active:focus,
+.show > .btn-secondary.dropdown-toggle:focus {
+  box-shadow: 0 0 0 0.25rem rgba(38, 73, 112, 0.5);
+}
+
+.btn-secondary:disabled, .btn-secondary.disabled {
+  color: #fff;
+  background-color: #002957;
+  border-color: #002957;
+}
+
+h1, h2, h3,
+.h1, .h2, .h3 {
+  color: #002957;
+  font-weight: bold;
+}
+
+/* Button spinners */
+button {
+  position: relative;
+}
+
+button .spinner-border {
+  display: none;
+  position: absolute;
+  color: white;
+  margin: auto;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+}
+
+form.submitting button {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+form.submitting button .spinner-border {
+  display: unset;
+}
+
+/* email confirmation messages */
+body.confirm-email-page .when-confirmed, body.confirm-email-page .when-confirmed-already, body.confirm-email-page .when-bad-token, body.confirm-email-page .when-error {
+  display: none;
+}
+
+body.confirm-email-page .is-confirmed .when-confirmed,
+body.confirm-email-page .is-confirmed-already .when-confirmed-already,
+body.confirm-email-page .is-bad-token .when-bad-token,
+body.confirm-email-page .is-error .when-error {
+  display: unset;
+}
+
+.when-logged-in, .when-logged-out {
+  display: none;
+}
+
+body.logged-in .when-logged-in,
+body.logged-out .when-logged-out {
+  display: unset;
+}
+
+body.index-page #LoginButton {
+  display: none !important;
+}
