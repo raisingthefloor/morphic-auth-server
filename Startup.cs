@@ -36,18 +36,20 @@ namespace MorphicAuthServer
 {
     public class Startup
     {
-        // public Startup(IConfiguration configuration)
-        // {
-        //     Configuration = configuration;
-        // }
+        public Startup(IConfiguration configuration)
+        {
+            Configuration = configuration;
+        }
 
-        // public IConfiguration Configuration { get; }
+        public IConfiguration Configuration { get; }
 
-        // public void ConfigureServices(IServiceCollection services)
-        // {
+        // This method gets called by the runtime. Use this method to add services to the container.
+        // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
+        public void ConfigureServices(IServiceCollection services)
+        {
+        }
 
-        // }
-
+        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
@@ -56,6 +58,7 @@ namespace MorphicAuthServer
             }
 
             app.UseRouting();
+            app.UseStaticFiles();
 
             // TODO: disable HTTP port (except perhaps as redirect to HTTPS port)
             // TODO: add routing/error handling which returns 404 for invalid routes
