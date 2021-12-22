@@ -38,7 +38,7 @@ const configs = {
       const u = new URL(url);
       if (u.host.startsWith("auth.")) {
         // swap "auth" subdomain with "custom".
-        u.host = u.host.replace(/^identity\./, "custom.");
+        u.host = u.host.replace(/^auth\./, "custom.");
       } else {
         // use the same as this site, but change the port to 8080
         u.port = 8080;
