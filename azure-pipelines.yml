@@ -21,29 +21,29 @@ pool:
 stages:
   - stage: Docker
     jobs:
-      - job: Docker image
+      - job: "Docker image"
         steps:
           - task: Docker@2
-            displayName: Build docker image
+            displayName: "Build docker image"
             inputs:
               command: build
-              containerRegistry: container registry
-              repository: contosoRepository
+              containerRegistry: acr-morphicdev
+              repository: morphic-auth-server
               tags: dev-$(Build.BuildId)
           - task: Docker@2
-            displayName: Log in to container registry
+            displayName: "Log in to container registry"
             inputs:
               command: login
               containerRegistry: acr-morphicdev
           - task: Docker@2
-            displayName: Push docker image
+            displayName: "Push docker image"
             inputs:
               command: push
-              containerRegistry: container registry
-              repository: contosoRepository
+              containerRegistry: acr-morphicdev
+              repository: morphic-auth-server
               tags: dev-$(Build.BuildId)
           - task: Docker@2
-            displayName: Log out of container registry
+            displayName: "Log out of container registry"
             inputs:
               command: logout
               containerRegistry: acr-morphicdev
