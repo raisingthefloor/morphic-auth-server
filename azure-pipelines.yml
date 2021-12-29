@@ -41,7 +41,7 @@ stages:
               command: push
               containerRegistry: acr-morphicdev
               repository: morphic-auth-server
-              tags: dev-$(Build.BuildId)
+              tags: dev-$(Build.BuildNumber)
           - task: Docker@2
             displayName: Log out of container registry
             inputs:
