@@ -26,7 +26,7 @@ pool:
 #   develop -> dev-
 # - choose the container registry, based on the branch
 #   master -> acr-morphic
-#   prod -> dockerhub-raisingthefloor [this service connection is not yet established]
+#   prod -> dockerhub-raisingthefloor
 #   develop -> acr-morphicdev
 # - NOTE: we may want to create an "acr-morphicpr" container registry as well, and send any docker images there for PR check-ins (and then launch a temporary site off of a pr.morphic.org subdomain)
 # - finally: create a mechanism (during dev and production deployment) to delete any container images from the registry which are older than the image we are replacing (i.e. only keep the current one and the new one)
