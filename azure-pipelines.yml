@@ -18,6 +18,19 @@ pool:
 #     echo See https://aka.ms/yaml
 #   displayName: 'Run a multi-line script'
 
+# TODO:
+# - detect the branch (master, develop or prod)
+# - create a tag prefix for the docker tag, based on the branch
+#   master -> [no prefix]
+#   prod -> [no prefix]
+#   develop -> dev-
+# - choose the container registry, based on the branch
+#   master -> acr-morphic
+#   prod -> dockerhub-raisingthefloor [this service connection is not yet established]
+#   develop -> acr-morphicdev
+# - NOTE: we may want to create an "acr-morphicpr" container registry as well, and send any docker images there for PR check-ins (and then launch a temporary site off of a pr.morphic.org subdomain)
+# - finally: create a mechanism (during dev and production deployment) to delete any container images from the registry which are older than the image we are replacing (i.e. only keep the current one and the new one)
+
 stages:
   - stage: Docker
     jobs:
@@ -27,24 +40,24 @@ stages:
             displayName: Build docker image
             inputs:
               command: build
-              containerRegistry: acr-morphicdev
+              containerRegistry: acr-morphic
               repository: morphic-auth-server
-              tags: dev-$(Build.BuildNumber)
+              tags: $(Build.BuildNumber)
           - task: Docker@2
             displayName: Log in to container registry
             inputs:
               command: login
-              containerRegistry: acr-morphicdev
+              containerRegistry: acr-morphic
           - task: Docker@2
             displayName: Push docker image
             inputs:
               command: push
-              containerRegistry: acr-morphicdev
+              containerRegistry: acr-morphic
               repository: morphic-auth-server
-              tags: dev-$(Build.BuildNumber)
+              tags: $(Build.BuildNumber)
           - task: Docker@2
             displayName: Log out of container registry
             inputs:
               command: logout
-              containerRegistry: acr-morphicdev
+              containerRegistry: acr-morphic
 
