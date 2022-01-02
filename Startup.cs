@@ -32,6 +32,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
+// TODO: this using statement is just for config tests; remove it after testing is complete
+using Microsoft.AspNetCore.Http;
+
 namespace MorphicAuthServer
 {
     public class Startup
@@ -66,6 +69,19 @@ namespace MorphicAuthServer
 
             app.UseEndpoints(endpoints =>
             {
+                // TODO: this endpoint is just for config tests; remove it after testing is complete
+                endpoints.MapGet("/configtest", async (context) =>
+                {
+                    var param1 = "value1";
+
+                    // context, this.Configuration
+                    var content="config param1: " + param1;
+
+                    // write our response
+                    context.Response.StatusCode = 200;
+                    context.Response.ContentType = "text/plain";
+                    await context.Response.WriteAsync(content);
+                });
 
                 // endpoints.MapGet("/oauth2/token/{token_id}", async (context) =>
                 // {
