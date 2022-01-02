@@ -75,7 +75,7 @@ namespace MorphicAuthServer
                     string param2;
                     try 
                     {
-                        param2 = System.IO.File.ReadAllText("secret/params/param2");
+                        param2 = System.IO.File.ReadAllText("secrets/params/param2");
                     }
                     catch 
                     {
