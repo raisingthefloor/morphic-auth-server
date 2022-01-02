@@ -72,10 +72,18 @@ namespace MorphicAuthServer
                 // TODO: this endpoint is just for config tests; remove it after testing is complete
                 endpoints.MapGet("/configtest", async (context) =>
                 {
-                    var param1 = "value1";
+                    string param2;
+                    try 
+                    {
+                        param2 = System.IO.File.ReadAllText("secret/params/param2");
+                    }
+                    catch 
+                    {
+                        param2 = "{file not found}";
+                    }
 
                     // context, this.Configuration
-                    var content="config param1: " + param1;
+                    var content = "config param2: " + param2;
 
                     // write our response
                     context.Response.StatusCode = 200;
