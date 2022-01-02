@@ -1,4 +1,4 @@
-// Copyright 2021 Raising the Floor - US, Inc.
+// Copyright 2021-2022 Raising the Floor - US, Inc.
 //
 // Licensed under the New BSD license. You may not use this file except in
 // compliance with this License.
@@ -72,18 +72,9 @@ namespace MorphicAuthServer
                 // TODO: this endpoint is just for config tests; remove it after testing is complete
                 endpoints.MapGet("/configtest", async (context) =>
                 {
-                    string param2;
-                    try 
-                    {
-                        param2 = System.IO.File.ReadAllText("secrets/params/param2");
-                    }
-                    catch 
-                    {
-                        param2 = "{file not found}";
-                    }
+                    var param2 = Morphic.Server.Settings.MorphicAppSecret.GetFileMappedSecret("params", "param2");
 
-                    // context, this.Configuration
-                    var content = "config param2: " + param2;
+                    var content = "config param2: " + (param2 ?? "{not found}");
 
                     // write our response
                     context.Response.StatusCode = 200;
