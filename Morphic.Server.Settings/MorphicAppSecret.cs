@@ -23,14 +23,15 @@
 
 namespace Morphic.Server.Settings;
 
+using System;
 using System.IO;
 
 public class MorphicAppSecret
 {
-    public static string? GetFileMappedSecret(string secret, string key)
+    public static string? GetFileMappedSecret(string group, string key)
     {
         // create a path to the secret
-        var pathToSecret = Path.Join(new string[] { "secrets", secret, key });
+        var pathToSecret = Path.Join(new string[] { "secrets", group, key });
 
         // determine if the secret exists on disk (via the runtime container volume)
         if (File.Exists(pathToSecret) == false)
@@ -48,4 +49,27 @@ public class MorphicAppSecret
             return null;
         }
     }
+
+    // NOTE: when supplying secrets as environment variables, we flatten them as keys; this should not be used except in controlled environments (Docker containers) or during development
+    public static string? GetEnvironmentSecret(string key) {
+        return Environment.GetEnvironmentVariable(key);
+    }
+
+    // NOTE: this function looks for secrets as file-mapped secrets first, and then looks for them in the flattened environment variable table as a backup
+    public static string? GetSecret(string group, string key) 
+    {
+        var fileMappedSecret = MorphicAppSecret.GetFileMappedSecret(group, key);
+        if (fileMappedSecret is not null) {
+            return fileMappedSecret;
+        }
+
+        var environmentSecret = MorphicAppSecret.GetEnvironmentSecret(key);
+        if (environmentSecret is not null) {
+            return environmentSecret;
+        }
+
+        // if we could not find the secret, return null
+        return null;
+    }
+
 }
