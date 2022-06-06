@@ -24,6 +24,18 @@
 // This code is partially derived from the public domain.
 
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Morphic.Core;
+using Morphic.OAuth;
+using Morphic.OAuth.Rfc7591;
+using Morphic.Server;
+using MorphicAuthServer.Utils;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 internal struct OAuthServiceEndpoints {
