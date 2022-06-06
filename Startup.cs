@@ -67,11 +67,13 @@ namespace MorphicAuthServer
             app.UseEndpoints(endpoints =>
             {
 
-                // endpoints.MapGet("/oauth2/token/{token_id}", async (context) =>
-                // {
-                //     var tokenId = context.Request.RouteValues["token_id"].ToString();
-                //     await OAuth2ServiceEndpoints.GetTokenAsync(context, tokenId);
-                // });
+                /* RFC 7591: OAuth 2.0 Dynamic Registration */
+                // client registration endpoint
+                endpoints.MapPost("/oauth/register", async (context) => 
+                {
+                    await OAuthServiceEndpoints.RegisterClientAsync(context, this.Configuration);
+                });
+
             });
         }
     }
