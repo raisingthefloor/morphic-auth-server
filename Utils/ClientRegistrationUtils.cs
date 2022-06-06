@@ -1,4 +1,4 @@
-// Copyright 2021-2022 Raising the Floor - International
+// Copyright 2021-2022 Raising the Floor - US, Inc.
 //
 // Licensed under the New BSD license. You may not use this file except in
 // compliance with this License.
@@ -36,7 +36,9 @@ namespace MorphicAuthServer.Utils
             // enum members
             public enum Values
             {
+                GrantTypeAndTokenEndpointAuthMethodAreIncompatible,
                 GrantTypeRequiresMissingResponseType,
+                GrantTypeRequiresRedirectUris,
                 InvalidRedirectUri,
                 UnknownGrantType,
                 UnknownResponseType,
@@ -44,7 +46,9 @@ namespace MorphicAuthServer.Utils
             }
 
             // functions to create member instances
+            public static ParseAndValidateClientRegistrationRequestContentError GrantTypeAndTokenEndpointAuthMethodAreIncompatible(string grantTypeAsString, string tokenEndpointAuthMethodAsString) => new ParseAndValidateClientRegistrationRequestContentError(Values.GrantTypeAndTokenEndpointAuthMethodAreIncompatible) { GrantTypeAsString = grantTypeAsString, TokenEndpointAuthMethodAsString = tokenEndpointAuthMethodAsString };
             public static ParseAndValidateClientRegistrationRequestContentError GrantTypeRequiresMissingResponseType(string grantTypeAsString, string responseTypeAsString) => new ParseAndValidateClientRegistrationRequestContentError(Values.GrantTypeRequiresMissingResponseType) { GrantTypeAsString = grantTypeAsString, ResponseTypeAsString = responseTypeAsString };
+            public static ParseAndValidateClientRegistrationRequestContentError GrantTypeRequiresRedirectUris(string grantTypeAsString) => new ParseAndValidateClientRegistrationRequestContentError(Values.GrantTypeRequiresRedirectUris) { GrantTypeAsString = grantTypeAsString };
             public static ParseAndValidateClientRegistrationRequestContentError InvalidRedirectUri(string redirectUriAsString) => new ParseAndValidateClientRegistrationRequestContentError(Values.InvalidRedirectUri) { RedirectUriAsString = redirectUriAsString };
             public static ParseAndValidateClientRegistrationRequestContentError UnknownGrantType(string grantTypeAsString) => new ParseAndValidateClientRegistrationRequestContentError(Values.UnknownGrantType) { GrantTypeAsString = grantTypeAsString };
             public static ParseAndValidateClientRegistrationRequestContentError UnknownResponseType(string responseTypeAsString) => new ParseAndValidateClientRegistrationRequestContentError(Values.UnknownResponseType) { ResponseTypeAsString = responseTypeAsString };
@@ -126,9 +130,13 @@ namespace MorphicAuthServer.Utils
             else
             {
                 // if no response types were provided, use the default
-                // NOTE: some grant_types have no corresponding response_types; should this only happen if grant_types includes authorization_code?
                 // RFC 7591 Sec. 2: response_types defaults to code
-                responseTypes.Add(OAuthResponseType.Code);
+
+                // NOTE: as some grant types do not have any corresponding required response type, we have chosen to only do this if the grant types list contains a grant type which requires a response type of code (and only if there were no requested response types)
+                if (grantTypes.Contains(OAuthGrantType.AuthorizationCode))
+                {
+                    responseTypes.Add(OAuthResponseType.Code);
+                }
             }
             //
             //// scope
@@ -161,6 +169,47 @@ namespace MorphicAuthServer.Utils
                 if (responseTypes.Contains(OAuthResponseType.Token) == false)
                 {
                     return MorphicResult.ErrorResult(ParseAndValidateClientRegistrationRequestContentError.GrantTypeRequiresMissingResponseType(OAuthGrantType.Implicit.ToStringValue()!, OAuthResponseType.Token.ToStringValue()!));
+                }
+            }
+            //
+            // grant types must have an allowed token endpoint auth method
+            foreach (var grantType in grantTypes) {
+                switch (grantType) {
+                    case OAuthGrantType.AuthorizationCode:
+                    case OAuthGrantType.Password:
+                    case OAuthGrantType.ClientCredentials:
+                    case OAuthGrantType.JwtBearer:
+                    case OAuthGrantType.Saml2Bearer:
+                        switch (tokenEndpointAuthMethod) {
+                            case OAuthTokenEndpointAuthMethod.ClientSecretBasic:
+                            case OAuthTokenEndpointAuthMethod.ClientSecretPost:
+                                // allowed
+                                break;
+                            case OAuthTokenEndpointAuthMethod.None:
+                                // disallowed
+                                return MorphicResult.ErrorResult(ParseAndValidateClientRegistrationRequestContentError.GrantTypeAndTokenEndpointAuthMethodAreIncompatible(grantType.ToStringValue()!, tokenEndpointAuthMethod.ToStringValue()!));
+                            default:
+                                throw new MorphicUnhandledErrorException();
+                        }
+                        break;
+                    case OAuthGrantType.Implicit:
+                        switch (tokenEndpointAuthMethod) {
+                            case OAuthTokenEndpointAuthMethod.None:
+                                // allowed
+                                break;
+                            case OAuthTokenEndpointAuthMethod.ClientSecretBasic:
+                            case OAuthTokenEndpointAuthMethod.ClientSecretPost:
+                                // disallowed
+                                return MorphicResult.ErrorResult(ParseAndValidateClientRegistrationRequestContentError.GrantTypeAndTokenEndpointAuthMethodAreIncompatible(grantType.ToStringValue()!, tokenEndpointAuthMethod.ToStringValue()!));
+                            default:
+                                throw new MorphicUnhandledErrorException();
+                        }
+                        break;
+                    case OAuthGrantType.RefreshToken:
+                        // not applicable
+                        break;
+                    default:
+                        throw new MorphicUnhandledErrorException();
                 }
             }
             //
@@ -213,6 +262,26 @@ namespace MorphicAuthServer.Utils
                     {
                         // fragment components are not allowed in redirect URIs
                         return MorphicResult.ErrorResult(ParseAndValidateClientRegistrationRequestContentError.InvalidRedirectUri(redirectUriAsString));
+                    }
+                }
+            }
+            //
+            // if the grant types include redirection, at least one redirect uri must be supplied
+            if (redirectUrisAsStrings is null || redirectUrisAsStrings.Count == 0) {
+                foreach (OAuthGrantType grantType in grantTypes) {
+                    switch (grantType) {
+                        case OAuthGrantType.AuthorizationCode:
+                        case OAuthGrantType.Implicit:
+                            // supplied grant type required redirect uris, but none were provided
+                            return MorphicResult.ErrorResult(ParseAndValidateClientRegistrationRequestContentError.GrantTypeRequiresRedirectUris(grantType.ToStringValue()!));
+                        case OAuthGrantType.Password:
+                        case OAuthGrantType.ClientCredentials:
+                        case OAuthGrantType.RefreshToken:
+                        case OAuthGrantType.JwtBearer:
+                        case OAuthGrantType.Saml2Bearer:
+                            break;
+                        default:
+                            throw new MorphicUnhandledErrorException();
                     }
                 }
             }
