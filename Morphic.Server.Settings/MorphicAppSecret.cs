@@ -51,25 +51,27 @@ public class MorphicAppSecret
     }
 
     // NOTE: when supplying secrets as environment variables, we flatten them as keys; this should not be used except in controlled environments (Docker containers) or during development
-    public static string? GetEnvironmentSecret(string key) {
+    public static string? GetEnvironmentSecret(string key)
+    {
         return Environment.GetEnvironmentVariable(key);
     }
 
     // NOTE: this function looks for secrets as file-mapped secrets first, and then looks for them in the flattened environment variable table as a backup
-    public static string? GetSecret(string group, string key) 
+    public static string? GetSecret(string group, string key)
     {
         var fileMappedSecret = MorphicAppSecret.GetFileMappedSecret(group, key);
-        if (fileMappedSecret is not null) {
+        if (fileMappedSecret is not null)
+        {
             return fileMappedSecret;
         }
 
         var environmentSecret = MorphicAppSecret.GetEnvironmentSecret(key);
-        if (environmentSecret is not null) {
+        if (environmentSecret is not null)
+        {
             return environmentSecret;
         }
 
         // if we could not find the secret, return null
         return null;
     }
-
 }

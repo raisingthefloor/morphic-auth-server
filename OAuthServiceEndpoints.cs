@@ -225,6 +225,42 @@ internal struct OAuthServiceEndpoints {
             }
         }
 
+        // validate the caller's initial access token
+        // NOTE: while OAuth does not require IATs, our current implementation does; in the future, we may loosen this restriction a bit by only requiring IATs for certain client registrations
+        var nullableBearerToken = HttpUtils.ExtractBearerTokenFromAuthorizationHeaderValue(context);
+        if (nullableBearerToken is null) 
+        {
+            // let the caller know that they're unauthorized, and that they need to provide a bearer (initial access) token
+            HttpUtils.SetHttpResponseStatusToUnauthorized(context);
+            await context.Response.WriteAsync(String.Empty);
+            return;
+        }
+        var bearerToken = nullableBearerToken!;
+        //
+        var loadedInitialAccessToken = await MorphicAuthServer.Model.OAuthToken.LoadAsync(bearerToken);
+        if (loadedInitialAccessToken.IsError == true)
+        {
+            switch (loadedInitialAccessToken.Error!.Value) 
+            {
+                case MorphicAuthServer.Model.LoadError.Values.NotFound:
+                    {
+                        // let the caller know that their bearer token was denied
+                        HttpUtils.SetHttpResponseStatusToForbidden(context);
+                        await context.Response.WriteAsync(String.Empty);
+                        return;
+                    }
+                case MorphicAuthServer.Model.LoadError.Values.DatabaseFailure:
+                default:
+                    {
+                        // let the caller know that we experienced an internal server error
+                        await HttpUtils.WriteHttpErrorResponseAsync(context, HttpUtils.HttpErrorResponse.InternalServerErrorResponse);
+                        return;
+                    }
+            }
+        }
+        //
+        // NOTE: in our current implementation, we do not test initial access tokens for anything beyond just existing; in the future, if we want to limit IATs to certain client IDs, etc. In that case, We would apply that logic here.
+
 	}
 
     // token endpoint
