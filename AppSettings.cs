@@ -23,6 +23,22 @@
 
 namespace MorphicAuthServer;
 
+using System;
+
 internal class AppSettings
 {
+    private static string? _regionId = null;
+
+    // NOTE: as an optimization, we only load this value once; the server must be restarted to recognize an updated setting value
+    public static string GetRegionId()
+    {
+        if (_regionId is null) 
+        {
+            var regionId = Morphic.Server.Settings.MorphicAppSetting.GetSetting("auth-server", "REGION_ID");
+            if (regionId is null) { throw new Exception("Application secret auth-server/REGION_ID was not found."); }
+            _regionId = regionId;
+        }
+
+        return _regionId;
+    }
 }

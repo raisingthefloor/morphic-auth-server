@@ -197,7 +197,7 @@ internal struct OAuthServiceEndpoints {
         var requestedClientMetadata = parseClientMetadata.Value!;
 
         // now, reject any client registration options which we don't support
-        // NOTE: we have already validated the client registration request, so we cannot filter out any data at this point (unless we refactor out the validation logic and then re-call it after our filtering is complete...and return appropriate errors if our filtering caused any validation errors)
+        // NOTE: we have already validated the client registration request, so we cannot filter out any data at this point (unless we refactor out the validation logic, re-call that logic after our filtering is complete, and return appropriate errors to the caller if our filtering caused any validation errors)
 
         // reject disallowed grant types
         foreach (var grantType in requestedClientMetadata.GrantTypes) {
@@ -217,7 +217,7 @@ internal struct OAuthServiceEndpoints {
                         var clientRegistrationErrorResponseContent = new Rfc7591ClientRegistrationErrorResponseContent()
                         {
                             error = Rfc7591ClientRegistrationErrorCodes.InvalidClientMetadata.ToStringValue()!,
-                            error_description = "The grant type \"" + grantType + "\" is not supported for dynamic client registration on this server."
+                            error_description = "The grant type \"" + grantType.ToStringValue()! + "\" is not supported for dynamic client registration on this server."
                         };
                         await HttpUtils.WriteHttpBadRequestJsonErrorResponseAsync(context, JsonSerializer.Serialize(clientRegistrationErrorResponseContent));
                         return;
@@ -259,8 +259,131 @@ internal struct OAuthServiceEndpoints {
             }
         }
         //
-        // NOTE: in our current implementation, we do not test initial access tokens for anything beyond just existing; in the future, if we want to limit IATs to certain client IDs, etc. In that case, We would apply that logic here.
+        // NOTE: in our current implementation, we do not test initial access tokens for anything beyond just their existence; in the future, if we want to limit IATs to certain client IDs, etc. In that case, We would apply that logic here.
 
+        // NOTE: in the current implementation, we register the client metadata as requested
+        var registeredClientMetadata = requestedClientMetadata;
+
+        // capture our region id; we'll need this to create our client id
+        var regionId = MorphicAuthServer.AppSettings.GetRegionId();
+        if (regionId is null || regionId.Length < 1)
+        {
+            await HttpUtils.WriteHttpErrorResponseAsync(context, HttpUtils.HttpErrorResponse.InternalServerErrorResponse);
+            return;
+        };
+        // verify that the region id can be parsed as an unsigned number
+        if (UInt32.TryParse(regionId, out var regionIdAsUInt32) == false) {
+            await HttpUtils.WriteHttpErrorResponseAsync(context, HttpUtils.HttpErrorResponse.InternalServerErrorResponse);
+            return;
+        }
+
+        // the request has passed validation; register the client
+        var createOAuthClientResult = await MorphicAuthServer.Model.OAuthClient.CreateAsync(registeredClientMetadata, regionId);
+        if (createOAuthClientResult.IsError == true)
+        {
+            switch (createOAuthClientResult.Error!.Value)
+            {
+                case MorphicAuthServer.Model.CreateError.Values.CouldNotCreateUniqueId:
+                    // it is extremely unlikely that attempting to create a unique ID would fail, but just in case it does we capture the error
+                    System.Console.WriteLine("ERROR: could not create unique ID");
+                    //
+                    // let the caller know that we experienced an internal server error
+                    await HttpUtils.WriteHttpErrorResponseAsync(context, HttpUtils.HttpErrorResponse.InternalServerErrorResponse);
+                    return;
+                case MorphicAuthServer.Model.CreateError.Values.CryptographyFailed:
+                    // cryptography should never fail
+                    System.Console.WriteLine("ERROR: cryptography failed");
+                    //
+                    // let the caller know that we experienced an internal server error
+                    await HttpUtils.WriteHttpErrorResponseAsync(context, HttpUtils.HttpErrorResponse.InternalServerErrorResponse);
+                    return;
+                case MorphicAuthServer.Model.CreateError.Values.DatabaseFailure:
+                    var exception = createOAuthClientResult.Error!.Exception!;
+                    System.Console.WriteLine("ERROR: database failure; ex: " + exception.ToString());
+                    //
+                    // let the caller know that we experienced an internal server error
+                    await HttpUtils.WriteHttpErrorResponseAsync(context, HttpUtils.HttpErrorResponse.InternalServerErrorResponse);
+                    return;
+                case MorphicAuthServer.Model.CreateError.Values.ValidationFailed:
+                    // we have already validated the request, so this error should never occur
+                    //
+                    // let the caller know that we experienced an internal server error
+                    await HttpUtils.WriteHttpErrorResponseAsync(context, HttpUtils.HttpErrorResponse.InternalServerErrorResponse);
+                    return;
+                default:
+                    throw new MorphicUnhandledErrorException();
+            }
+        }
+        var registeredOAuthClient = createOAuthClientResult.Value!;
+
+        // convert our client record's registered grant and response types into string arrays
+        List<string>? grantTypesAsStringArray = new List<string>();
+        foreach (var grantType in registeredOAuthClient.RegisteredMetadata.GrantTypes)
+        {
+            grantTypesAsStringArray.Add(grantType.ToStringValue()!);
+        }
+        if (grantTypesAsStringArray.Count == 0) { grantTypesAsStringArray = null; }
+        //
+        List<string>? responseTypesAsStringArray = new List<string>();
+        foreach (var responseType in registeredOAuthClient.RegisteredMetadata.ResponseTypes)
+        {
+            responseTypesAsStringArray.Add(responseType.ToStringValue()!);
+        }
+        if (responseTypesAsStringArray.Count == 0) { responseTypesAsStringArray = null; }
+
+        var registrationClientUriBase = "https://auth.morphic.org/oauth/register/";
+
+        // calculate the registered oauth client's "SecretExpiresAt" value to return to the caller (based on whether a secret was set or not, and whether it expires or not)
+        string? registeredOAuthClientSecret;
+        ulong? registeredOAuthClientSecretExpiresAt;
+        if (registeredOAuthClient.ClientSecrets is not null)
+        {
+            if (registeredOAuthClient.ClientSecrets?.Count != 1) 
+            {
+                throw new Exception("Programming error: new OAuthClients should only have one client secret");
+            }
+            var initialClientSecret = registeredOAuthClient.ClientSecrets[0];
+            registeredOAuthClientSecret = initialClientSecret.HashedValue.CleartextValue!;
+
+            // NOTE: if clientSecret was issued, this field is mandatory (non-nullable); it may be set as zero (0) to designate 'no expiration'
+            if (initialClientSecret.ExpiresAt is not null) {
+                registeredOAuthClientSecretExpiresAt = (ulong)(initialClientSecret.ExpiresAt.Value).ToUnixTimeSeconds();
+            }
+            else
+            {
+                registeredOAuthClientSecretExpiresAt = 0;
+            }
+        }
+        else 
+        {
+            registeredOAuthClientSecret = null;
+            registeredOAuthClientSecretExpiresAt = null;
+        }
+
+        var clientInformationResponseContent = new Morphic.OAuth.Rfc7591.Rfc7591ClientInformationResponseContent()
+        {
+            registration_access_token = registeredOAuthClient.RegistrationAccessTokens?.Count > 0 ? registeredOAuthClient.RegistrationAccessTokens![0] : null,
+            registration_client_uri = registeredOAuthClient.RegistrationAccessTokens?.Count > 0 ? registrationClientUriBase + registeredOAuthClient.ClientId : null,
+            //
+            client_id = registeredOAuthClient.ClientId,
+            client_id_issued_at = registeredOAuthClient.ClientIdIssuedAt != null ? (ulong)((DateTimeOffset)registeredOAuthClient.ClientIdIssuedAt.Value).ToUnixTimeSeconds() : null,
+            client_secret = registeredOAuthClientSecret,
+            client_secret_expires_at = registeredOAuthClientSecretExpiresAt,
+            //
+            redirect_uris = registeredOAuthClient.RegisteredMetadata.RedirectUris,
+            token_endpoint_auth_method = registeredOAuthClient.RegisteredMetadata.TokenEndpointAuthMethod.ToStringValue(),
+            grant_types = grantTypesAsStringArray,
+            response_types = responseTypesAsStringArray,
+            software_id = registeredOAuthClient.RegisteredMetadata.SoftwareId,
+            software_version = registeredOAuthClient.RegisteredMetadata.SoftwareVersion,
+        };
+
+        // return the client information response to the caller
+        context.Response.StatusCode = (int)HttpUtils.HttpResponseCode.HTTP_201_CREATED;
+        context.Response.ContentType = "application/json";
+        //
+        var responseBodyContent = JsonSerializer.Serialize(clientInformationResponseContent);
+        await context.Response.WriteAsync(responseBodyContent);
 	}
 
     // token endpoint

@@ -179,4 +179,100 @@ public struct CryptoUtils
         return MorphicResult.OkResult(cleartext);
     }
 
+    //
+
+    private enum HashAlgorithmMarker: byte
+    {
+        PBkdf2WithHmacSha512_128bitSalt_512bitSubkey = 0x00,
+    }
+
+    public static string SaltAndHashPassword(string password)
+    {
+        // settings for PBkdf2WithHmacSha512_128bitSalt_512bitSubkey
+        var saltNumberOfBits = 128; // minimum recommended by NIST (see https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-132.pdf page 6, captured 2022-02-18)
+        var hashNumberOfBits = 512; 
+        var hashKeyDerivationIterationCount = 120_000; // minimum recommended by OWASP for PBKDF2-HMAC-SHA512 (see https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html #pbkdf2, captured 2022-02-18)
+        //
+        var saltLengthInBytes = (int)Math.Ceiling((double)saltNumberOfBits / 8.0);
+        var hashLengthInBytes = (int)Math.Ceiling((double)hashNumberOfBits / 8.0);
+
+        // generate a salt
+        var salt = RandomNumberGenerator.GetBytes(saltLengthInBytes);
+
+        // derive a subkey using PBKDF2 and HMACSHA512 (128-bit salt, 512-bit subkey)
+        var hash = KeyDerivation.Pbkdf2(
+            password: password,
+            salt: salt,
+            prf: KeyDerivationPrf.HMACSHA512,
+            iterationCount: hashKeyDerivationIterationCount,
+            numBytesRequested: hashLengthInBytes
+        );
+
+        // create the format marker
+        byte formatMarker = (byte)HashAlgorithmMarker.PBkdf2WithHmacSha512_128bitSalt_512bitSubkey;
+
+        var saltAndHash = new byte[1 /* formatMarker */ + salt.Length + hash.Length];
+        saltAndHash[0] = formatMarker;
+        Array.Copy(salt, 0, saltAndHash, 1, salt.Length);
+        Array.Copy(hash, 0, saltAndHash, 1 + salt.Length, hash.Length);
+        var base64SaltAndHash = Convert.ToBase64String(saltAndHash);
+
+        return base64SaltAndHash;
+    }
+
+    public static bool VerifyPasswordMatchesSaltAndHash(string password, string base64SaltAndHash)
+    {
+        // settings for PBkdf2WithHmacSha512_128bitSalt_512bitSubkey
+        var saltNumberOfBits = 128; // minimum recommended by NIST (see https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-132.pdf page 6, captured 2022-02-18)
+        var hashNumberOfBits = 512; 
+        var hashKeyDerivationIterationCount = 120_000; // minimum recommended by OWASP for PBKDF2-HMAC-SHA512 (see https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html - captured 2022-02-18)
+        //
+        var saltLengthInBytes = (int)Math.Ceiling((double)saltNumberOfBits / 8.0);
+        var hashLengthInBytes = (int)Math.Ceiling((double)hashNumberOfBits / 8.0);
+
+        var saltAndHash = Convert.FromBase64String(base64SaltAndHash);
+        if (saltAndHash.Length < 1)
+        {
+            System.Diagnostics.Debug.Assert(false, "Argument 'base64SaltAndHash' does not contain enough bytes to determine the hash algorithm and/or its parameters");
+            return false;
+        }
+
+        const int ALGORITHM_MARKER_LENGTH = 1;
+        var algorithm = saltAndHash[0];
+        nint algorithmParamsLength;
+        switch ((HashAlgorithmMarker)algorithm)
+        {
+            case HashAlgorithmMarker.PBkdf2WithHmacSha512_128bitSalt_512bitSubkey:
+                algorithmParamsLength = 0;
+                break;
+            default:
+                System.Diagnostics.Debug.Assert(false, "Unknown hash algorithm");
+                return false;
+        }
+
+        if (saltAndHash.Length != ALGORITHM_MARKER_LENGTH + algorithmParamsLength + saltLengthInBytes + hashLengthInBytes)
+        {
+            System.Diagnostics.Debug.Assert(false, "Argument 'base64SaltAndHash' does not contain the required number of data bytes for its algorithm");
+            return false;
+        }
+
+        var salt = new byte[saltLengthInBytes];
+        var verifyHash = new byte[hashLengthInBytes];
+        Array.Copy(saltAndHash, ALGORITHM_MARKER_LENGTH, salt, 0, salt.Length);
+        Array.Copy(saltAndHash, ALGORITHM_MARKER_LENGTH + salt.Length, verifyHash, 0, verifyHash.Length);
+
+        // derive a subkey using PBKDF2 and HMACSHA512 (128-bit salt, 512-bit subkey)
+        var hash = KeyDerivation.Pbkdf2(
+            password: password,
+            salt: salt,
+            prf: KeyDerivationPrf.HMACSHA512,
+            iterationCount: hashKeyDerivationIterationCount,
+            numBytesRequested: hashLengthInBytes
+        );
+
+        // compare verifyHash with hash
+        var hashMatches = (verifyHash.SequenceEqual(hash) == false);
+
+        return hashMatches;
+    }
 }

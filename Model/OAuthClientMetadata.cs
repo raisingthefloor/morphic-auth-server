@@ -21,33 +21,123 @@
 // * Adobe Foundation
 // * Consumer Electronics Association Foundation
 
+namespace MorphicAuthServer.Model;
+
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using MongoDB.Driver;
 using Morphic.Core;
 using Morphic.OAuth;
 using System.Collections.Generic;
 
-namespace MorphicAuthServer.Model
+public struct OAuthClientMetadata
 {
-    public struct OAuthClientMetadata
+    [BsonElement("redirect_uris"), BsonIgnoreIfNull]
+    public List<string>? RedirectUris;
+    //
+    [BsonElement("token_endpoint_auth_method")]
+    public OAuthTokenEndpointAuthMethod TokenEndpointAuthMethod { get; set; }
+    //
+    [BsonElement("grant_types")]
+    public List<OAuthGrantType> GrantTypes { get; set; }
+    //
+    [BsonElement("response_types")]
+    public List<OAuthResponseType> ResponseTypes { get; set; }
+    //
+    [BsonElement("software_id"), BsonIgnoreIfNull]
+    public string? SoftwareId { get; set; }
+    //
+    [BsonElement("software_version"), BsonIgnoreIfNull]
+    public string? SoftwareVersion { get; set; }
+
+    internal static MorphicResult<OAuthClientMetadata, MorphicUnit> TryFrom(MongoSerializedOAuthClientMetadata mongoRecord)
     {
-        [BsonElement("redirectUris"), BsonIgnoreIfNull]
-        public List<string>? RedirectUris;
+        var redirectUris = mongoRecord.RedirectUris;
         //
-        [BsonElement("tokenEndpointAuthMethod")]
-        public OAuthTokenEndpointAuthMethod TokenEndpointAuthMethod { get; set; }
+        var tokenEndpointAuthMethod = MorphicEnum<OAuthTokenEndpointAuthMethod>.FromStringValue(mongoRecord.TokenEndpointAuthMethod);
+        if (tokenEndpointAuthMethod is null) { return MorphicResult.ErrorResult(); }
         //
-        [BsonElement("grantTypes")]
-        public List<OAuthGrantType> GrantTypes { get; set; }
+        List<OAuthGrantType> grantTypes = new();
+        foreach (var grantTypeAsString in mongoRecord.GrantTypes) 
+        {
+            var grantType = MorphicEnum<OAuthGrantType>.FromStringValue(grantTypeAsString);
+            if (grantType is null) { return MorphicResult.ErrorResult(); }
+            grantTypes.Add(grantType.Value);
+        }
         //
-        [BsonElement("responseTypes")]
-        public List<OAuthResponseType> ResponseTypes { get; set; }
+        List<OAuthResponseType> responseTypes = new();
+        foreach (var responseTypeAsString in mongoRecord.ResponseTypes) 
+        {
+            var responseType = MorphicEnum<OAuthResponseType>.FromStringValue(responseTypeAsString);
+            if (responseType is null) { return MorphicResult.ErrorResult(); }
+            responseTypes.Add(responseType.Value);
+        }
         //
-        [BsonElement("softwareId"), BsonIgnoreIfNull]
-        public string? SoftwareId { get; set; }
+        var softwareId = mongoRecord.SoftwareId;
         //
-        [BsonElement("softwareVersion"), BsonIgnoreIfNull]
-        public string? SoftwareVersion { get; set; }
+        var softwareVersion = mongoRecord.SoftwareVersion;
+
+        var result = new OAuthClientMetadata() {
+            RedirectUris = redirectUris,
+            TokenEndpointAuthMethod = tokenEndpointAuthMethod.Value,
+            GrantTypes = grantTypes,
+            ResponseTypes = responseTypes,
+            SoftwareId = softwareId,
+            SoftwareVersion = softwareVersion
+        };
+        return MorphicResult.OkResult(result);
+    }
+}
+
+internal struct MongoSerializedOAuthClientMetadata 
+{
+    [BsonElement("redirect_uris"), BsonIgnoreIfNull]
+    public List<string>? RedirectUris;
+    //
+    [BsonElement("token_endpoint_auth_method")]
+    public string TokenEndpointAuthMethod { get; set; }
+    //
+    [BsonElement("grant_types")]
+    public List<string> GrantTypes { get; set; }
+    //
+    [BsonElement("response_types")]
+    public List<string> ResponseTypes { get; set; }
+    //
+    [BsonElement("software_id"), BsonIgnoreIfNull]
+    public string? SoftwareId { get; set; }
+    //
+    [BsonElement("software_version"), BsonIgnoreIfNull]
+    public string? SoftwareVersion { get; set; }
+
+    internal static MongoSerializedOAuthClientMetadata From(OAuthClientMetadata metadata)
+    {
+        var redirectUris = metadata.RedirectUris;
+        //
+        var tokenEndpointAuthMethod = metadata.TokenEndpointAuthMethod.ToStringValue()!;
+        //
+        List<string> grantTypes = new();
+        foreach (var metadataGrantType in metadata.GrantTypes) 
+        {
+            grantTypes.Add(metadataGrantType.ToStringValue()!);
+        }
+        //
+        List<string> responseTypes = new();
+        foreach (var metadataResponseType in metadata.ResponseTypes) 
+        {
+            responseTypes.Add(metadataResponseType.ToStringValue()!);
+        }
+        //
+        var softwareId = metadata.SoftwareId;
+        //
+        var softwareVersion = metadata.SoftwareVersion;
+
+        var result = new MongoSerializedOAuthClientMetadata() {
+            RedirectUris = redirectUris,
+            TokenEndpointAuthMethod = tokenEndpointAuthMethod,
+            GrantTypes = grantTypes,
+            ResponseTypes = responseTypes,
+            SoftwareId = softwareId,
+            SoftwareVersion = softwareVersion
+        };
+        return result;
     }
 }

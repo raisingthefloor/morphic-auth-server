@@ -21,28 +21,32 @@
 // * Adobe Foundation
 // * Consumer Electronics Association Foundation
 
+namespace MorphicAuthServer.Model;
+
 using Morphic.Core;
 using System;
 
-namespace MorphicAuthServer.Model
+internal record CreateError : MorphicAssociatedValueEnum<CreateError.Values>
 {
-    internal record CreateError : MorphicAssociatedValueEnum<CreateError.Values>
+    // enum members
+    public enum Values
     {
-        // enum members
-        public enum Values
-        {
-            CryptographyFailed,
-            DatabaseFailure,
-        }
-
-        // functions to create member instances
-        public static CreateError CryptographyFailed => new(Values.CryptographyFailed);
-        public static CreateError DatabaseFailure(Exception exception) => new(Values.DatabaseFailure) { Exception = exception };
-
-        // associated values
-        public Exception? Exception { get; private set; }
-
-        // verbatim required constructor implementation for MorphicAssociatedValueEnums
-        private CreateError(Values value) : base(value) { }
+        CouldNotCreateUniqueId,
+        CryptographyFailed,
+        DatabaseFailure,
+        ValidationFailed
     }
+
+    // functions to create member instances
+    public static CreateError CouldNotCreateUniqueId => new(Values.CouldNotCreateUniqueId);
+    public static CreateError CryptographyFailed => new(Values.CryptographyFailed);
+    public static CreateError DatabaseFailure(Exception exception) => new(Values.DatabaseFailure) { Exception = exception };
+    public static CreateError ValidationFailed(object? validationError) => new(Values.ValidationFailed) { ValidationError = validationError };
+
+    // associated values
+    public Exception? Exception { get; private set; }
+    public object? ValidationError { get; private set; }
+
+    // verbatim required constructor implementation for MorphicAssociatedValueEnums
+    private CreateError(Values value) : base(value) { }
 }
