@@ -10,6 +10,6 @@
     <PackageReference Include="MongoDB.Bson" Version="2.14.1" />
     <PackageReference Include="MongoDB.Driver" Version="2.14.1" />
     <PackageReference Include="Morphic.Core" Version="1.1.0" />
-    <PackageReference Include="Morphic.OAuth.Core" Version="1.0.0" />
+    <PackageReference Include="Morphic.OAuth.Core" Version="1.1.0" />
   </ItemGroup>
 </Project>
