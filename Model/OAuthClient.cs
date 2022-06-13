@@ -75,7 +75,7 @@ internal class MongoSerializedOAuthClient
     [BsonElement("encrypted_registration_access_tokens"), BsonIgnoreIfNull]
     public List<string>? EncryptedRegistrationAccessTokens { get; init; }
 
-    [BsonElement("registeredMetadata")] 
+    [BsonElement("registered_metadata")] 
     public MongoSerializedOAuthClientMetadata RegisteredMetadata { get; init; }
 
     internal static async Task<MongoSerializedOAuthClient> FromAsync(OAuthClient oauthClient)
@@ -350,7 +350,7 @@ internal class OAuthClient
             var filter = new BsonDocument { { "_id", clientId! } };
             var encryptedRegistrationAccessTokenId = await OAuthToken.EncryptIdAsync(registrationAccessTokenRecord.Id);
             var encryptedRegistrationAccessTokens = new BsonArray { encryptedRegistrationAccessTokenId };
-            var update = Builders<MongoSerializedOAuthClient>.Update.Set("encryptedRegistrationAccessTokens", encryptedRegistrationAccessTokens);
+            var update = Builders<MongoSerializedOAuthClient>.Update.Set("encrypted_registration_access_tokens", encryptedRegistrationAccessTokens);
 			//
             var updateResult = await oauthClientCollection.UpdateOneAsync(filter, update);
 			if (updateResult.IsAcknowledged == false || updateResult.MatchedCount != 1 || updateResult.ModifiedCount != 1) 
