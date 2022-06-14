@@ -386,6 +386,11 @@ internal struct OAuthServiceEndpoints {
         await context.Response.WriteAsync(responseBodyContent);
 	}
 
+	// NOTES on FUTURE endpoints:
+	// 1. client id registration get/update endpoint: if a caller calls this endpoint using their valid registration access token, we'd purge the oldest secret and any expired secrets, create a new secret and return the new secret
+	// 											      also, whenever a caller updated the registration endpoint, we'd delete all registration access tokens other than the one used for the update
+	//                                                [re-evaluate this mechanism when we create it; essentially we want to make sure that users can never get "locked out" of their client id's registration endpoint and can also get a new client secret]
+
     // token endpoint
     // internal static async Task GetTokenAsync(HttpContext context, string tokenId)
     // {
