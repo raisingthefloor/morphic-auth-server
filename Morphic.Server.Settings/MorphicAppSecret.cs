@@ -28,6 +28,8 @@ using System.IO;
 
 public class MorphicAppSecret
 {
+    public delegate (byte[], byte[]) GetCryptoKeyAndIVSecretsDelegate();
+
     public static string? GetFileMappedSecret(string group, string key)
     {
         // create a path to the secret

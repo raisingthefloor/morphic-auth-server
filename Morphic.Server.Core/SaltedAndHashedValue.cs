@@ -23,34 +23,33 @@
 
 namespace Morphic.Server.Core;
 
-public struct HashedPassword
+public struct SaltedAndHashedValue
 {
     private string? _cleartextValue { get; init; }
     //
-    // NOTE: _saltedAndHashedValue is salted, hashed and base64-encoded
-    private string _saltedAndHashedValue { get; init; }
+    private byte[] _saltedHashAsBytes { get; init; }
 
-    private HashedPassword(string? value, string hashedValue)
+    private SaltedAndHashedValue(string? value, byte[] saltedHashAsBytes)
     {
         _cleartextValue = value;
-        _saltedAndHashedValue = hashedValue;
+        _saltedHashAsBytes = saltedHashAsBytes;
     }
 
-    public static HashedPassword FromCleartextValue(string value)
+    public static SaltedAndHashedValue FromCleartextValue(string value)
     {
-        var result = new HashedPassword(value, CryptoUtils.SaltAndHashPassword(value));
+        var result = new SaltedAndHashedValue(value, CryptoUtils.SaltAndHashPassword(value));
         return result;
     }
 
-    public static HashedPassword FromHashedValue(string hashedValue)
+    public static SaltedAndHashedValue FromSaltedAndHashedValue(byte[] saltedHashAsBytes)
     {
-        var result = new HashedPassword(null, hashedValue);
+        var result = new SaltedAndHashedValue(null, saltedHashAsBytes);
         return result;
     }
 
     public bool ConfirmPasswordMatch(string value)
     {
-        return CryptoUtils.VerifyPasswordMatchesSaltAndHash(value, _saltedAndHashedValue);
+        return CryptoUtils.VerifyPasswordMatchesSaltAndHash(value, _saltedHashAsBytes);
     }
 
     public bool HasCleartextValue
@@ -69,11 +68,11 @@ public struct HashedPassword
         }
     }
 
-    public string HashedValue
+    public byte[] SaltedHashAsBytes
     {
         get
         {
-            return _saltedAndHashedValue;
+            return _saltedHashAsBytes;
         }
     }
 

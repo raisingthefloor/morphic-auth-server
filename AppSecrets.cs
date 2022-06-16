@@ -39,15 +39,25 @@ internal class AppSecrets
 
     public static (byte[], byte[]) GetOAuthTokenIdCryptoKeyAndIVSecrets()
     {
-        // capture the necessary secret to encrypt/decrypt oauth token ids
-        var oauthTokenIdEncryptionKeyAsBase64String = Morphic.Server.Settings.MorphicAppSecret.GetSecret("auth-server", "OAUTHTOKEN_ID_ENCRYPTION_KEY");
-        if (oauthTokenIdEncryptionKeyAsBase64String is null) { throw new Exception("Application secret auth-server/OAUTHTOKEN_ID_ENCRYPTION_KEY was not found."); }
-        var oauthTokenIdEncryptionKey = Convert.FromBase64String(oauthTokenIdEncryptionKeyAsBase64String!);
-        //
-        var oauthTokenIdEncryptionIVAsBase64String = Morphic.Server.Settings.MorphicAppSecret.GetSecret("auth-server", "OAUTHTOKEN_ID_ENCRYPTION_IV");
-        if (oauthTokenIdEncryptionIVAsBase64String is null) { throw new Exception("Application secret auth-server/OAUTHTOKEN_ID_ENCRYPTION_IV was not found."); }
-        var oauthTokenIdEncryptionIV = Convert.FromBase64String(oauthTokenIdEncryptionIVAsBase64String!);
+        return AppSecrets.GetCryptoKeyAndIVSecrets("auth-server", "OAUTHTOKEN_ID_ENCRYPTION_KEY", "OAUTHTOKEN_ID_ENCRYPTION_IV");
+    }
 
-        return (oauthTokenIdEncryptionKey, oauthTokenIdEncryptionIV);
+    public static (byte[], byte[]) GetUserEmailAddressValueCryptoKeyAndIVSecrets()
+    {
+        return AppSecrets.GetCryptoKeyAndIVSecrets("auth-server", "USER_EMAILADDRESS_VALUE_ENCRYPTION_KEY", "USER_EMAILADDRESS_VALUE_ENCRYPTION_IV");
+    }
+
+    public static (byte[], byte[]) GetCryptoKeyAndIVSecrets(string secretGroup, string secretKeyForCryptoKey, string secretKeyForCryptoIv)
+    {
+        // capture the necessary secret to encrypt/decrypt user email addresses
+        var encryptionKeyAsBase64String = Morphic.Server.Settings.MorphicAppSecret.GetSecret(secretGroup, secretKeyForCryptoKey);
+        if (encryptionKeyAsBase64String is null) { throw new Exception("Application secret " + secretGroup + "/" + secretKeyForCryptoKey + " was not found."); }
+        var encryptionKey = Convert.FromBase64String(encryptionKeyAsBase64String!);
+        //
+        var cryptoIVAsBase64String = Morphic.Server.Settings.MorphicAppSecret.GetSecret(secretGroup, secretKeyForCryptoIv);
+        if (cryptoIVAsBase64String is null) { throw new Exception("Application secret " + secretGroup  + "/" + secretKeyForCryptoIv + " was not found."); }
+        var cryptoIV = Convert.FromBase64String(cryptoIVAsBase64String!);
+
+        return (encryptionKey, cryptoIV);
     }
 }

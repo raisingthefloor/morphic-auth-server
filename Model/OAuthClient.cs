@@ -36,19 +36,19 @@ using System.Threading.Tasks;
 internal class MongoSerializedOAuthClientSecret
 {
     [BsonElement("hashed_value")]
-    public string HashedValue { get; init; }
+    public byte[] HashedValue { get; init; }
     //
     [BsonElement("expires_at"), BsonIgnoreIfNull]
     public DateTime? ExpiresAt { get; init; }
 
-    public MongoSerializedOAuthClientSecret(string hashedValue)
+    public MongoSerializedOAuthClientSecret(byte[] hashedValue)
     {
         this.HashedValue = hashedValue;
     }
 
     public static MongoSerializedOAuthClientSecret From(OAuthClientSecret oauthClientSecret)
     {
-        var hashedValue = oauthClientSecret.HashedValue.HashedValue;
+        var hashedValue = oauthClientSecret.HashedValue.SaltedHashAsBytes;
         //
         var expiresAt = oauthClientSecret.ExpiresAt;
 
@@ -100,7 +100,7 @@ internal class MongoSerializedOAuthClient
             encryptedRegistrationAccessTokens = new();
             foreach (var registrationAccessToken in oauthClient.RegistrationAccessTokens)
             {
-                var encryptedRegistrationAccessToken = await OAuthToken.EncryptIdAsync(registrationAccessToken);
+                var encryptedRegistrationAccessToken = await CryptoUtils.EncryptPrefixedValueAsync_Throws(AppSecrets.GetOAuthTokenIdCryptoKeyAndIVSecrets, registrationAccessToken);
                 encryptedRegistrationAccessTokens.Add(encryptedRegistrationAccessToken);
             }
         }
@@ -121,17 +121,17 @@ internal class MongoSerializedOAuthClient
 
 internal class OAuthClientSecret 
 {
-    public HashedPassword HashedValue { get; init; }
+    public SaltedAndHashedValue HashedValue { get; init; }
     public DateTimeOffset? ExpiresAt { get; init; }
 
-    public OAuthClientSecret(HashedPassword hashedValue) 
+    public OAuthClientSecret(SaltedAndHashedValue hashedValue) 
     {
         this.HashedValue = hashedValue;
     }
 
     public static OAuthClientSecret From(MongoSerializedOAuthClientSecret mongoRecord)
     {
-        var hashedValue = HashedPassword.FromHashedValue(mongoRecord.HashedValue);
+        var hashedValue = SaltedAndHashedValue.FromSaltedAndHashedValue(mongoRecord.HashedValue);
         //
         DateTimeOffset? expiresAt = (mongoRecord.ExpiresAt is not null) ? (DateTimeOffset)mongoRecord.ExpiresAt : null;
 
@@ -177,7 +177,7 @@ internal class OAuthClient
             registrationAccessTokens = new();
             foreach (var encryptedRegistrationAccessToken in mongoRecord.EncryptedRegistrationAccessTokens)
             {
-                var registrationAccessToken = await OAuthToken.DecryptIdAsync(encryptedRegistrationAccessToken);
+                var registrationAccessToken = await CryptoUtils.DecryptPrefixedValueAsync_Throws(AppSecrets.GetOAuthTokenIdCryptoKeyAndIVSecrets, encryptedRegistrationAccessToken);
                 registrationAccessTokens.Add(registrationAccessToken);
             }
         }
@@ -251,7 +251,7 @@ internal class OAuthClient
         if (clientSecret is not null) 
         {
             clientSecrets = new();
-            var oauthClientSecret = new OAuthClientSecret(hashedValue: HashedPassword.FromCleartextValue(clientSecret))
+            var oauthClientSecret = new OAuthClientSecret(hashedValue: SaltedAndHashedValue.FromCleartextValue(clientSecret))
             {
                 ExpiresAt = clientSecretExpiresAt
             };
@@ -348,7 +348,7 @@ internal class OAuthClient
         try
         {
             var filter = new BsonDocument { { "_id", clientId! } };
-            var encryptedRegistrationAccessTokenId = await OAuthToken.EncryptIdAsync(registrationAccessTokenRecord.Id);
+            var encryptedRegistrationAccessTokenId = await CryptoUtils.EncryptPrefixedValueAsync_Throws(AppSecrets.GetOAuthTokenIdCryptoKeyAndIVSecrets, registrationAccessTokenRecord.Id);
             var encryptedRegistrationAccessTokens = new BsonArray { encryptedRegistrationAccessTokenId };
             var update = Builders<MongoSerializedOAuthClient>.Update.Set("encrypted_registration_access_tokens", encryptedRegistrationAccessTokens);
 			//

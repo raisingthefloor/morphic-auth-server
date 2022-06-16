@@ -1,4 +1,4 @@
-// Copyright 2021-2022Raising the Floor - US, Inc.
+// Copyright 2021-2022 Raising the Floor - US, Inc.
 //
 // Licensed under the New BSD license. You may not use this file except in
 // compliance with this License.
@@ -57,7 +57,7 @@ internal class MongoSerializedOAuthToken
 
     internal static async Task<MongoSerializedOAuthToken> FromAsync(OAuthToken oauthToken)
     {
-        var encryptedId = await OAuthToken.EncryptIdAsync(oauthToken.Id);
+        var encryptedId = await CryptoUtils.EncryptPrefixedValueAsync_Throws(AppSecrets.GetOAuthTokenIdCryptoKeyAndIVSecrets, oauthToken.Id);
         //
         string type = oauthToken.Type.ToStringValue()!;
         //
@@ -89,7 +89,7 @@ internal struct OAuthToken
 
     internal static async Task<MorphicResult<OAuthToken, MorphicUnit>> TryFromAsync(MongoSerializedOAuthToken mongoRecord) 
     {
-        var id = await OAuthToken.DecryptIdAsync(mongoRecord.EncryptedId);
+        var id = await CryptoUtils.DecryptPrefixedValueAsync_Throws(AppSecrets.GetOAuthTokenIdCryptoKeyAndIVSecrets, mongoRecord.EncryptedId);
         //
         OAuthTokenType type;
         var nullableType = MorphicEnum<OAuthTokenType>.FromStringValue(mongoRecord.Type);
@@ -125,56 +125,6 @@ internal struct OAuthToken
 
     //
 
-    internal static async Task<string> DecryptIdAsync(string encryptedId)
-    {
-        var (aesKey, aesIV) = MorphicAuthServer.AppSecrets.GetOAuthTokenIdCryptoKeyAndIVSecrets();
-
-        var (prefix, encryptedIdWithoutPrefix) = PrefixUtils.SplitPrefixAndValue(encryptedId);
-
-        var decryptResult = await CryptoUtils.ConvertFromUrlBase64StringAndDecryptAsync(encryptedIdWithoutPrefix, aesKey, aesIV);
-        if (decryptResult.IsError == true) 
-        {
-            switch (decryptResult.Error!.Value)
-            {
-                case CryptoUtils.CryptoError.Values.CryptoFailure:
-                    var ex = decryptResult.Error!.Exception!;
-                    throw ex;
-                default:
-                    throw new MorphicUnhandledErrorException();
-            }
-        }
-        var decryptedIdWithoutPrefix = decryptResult.Value!;
-
-        var decryptedId = PrefixUtils.CombinePrefixAndValue(prefix, decryptedIdWithoutPrefix);
-        return decryptedId;
-    }
-
-    internal static async Task<string> EncryptIdAsync(string id)
-    {
-        var (aesKey, aesIV) = MorphicAuthServer.AppSecrets.GetOAuthTokenIdCryptoKeyAndIVSecrets();
-
-        var (prefix, idWithoutPrefix) = PrefixUtils.SplitPrefixAndValue(id);
-
-        var encryptResult = await CryptoUtils.EncryptAndConvertToUrlBase64StringAsync(idWithoutPrefix, aesKey, aesIV);
-        if (encryptResult.IsError == true) 
-        {
-            switch (encryptResult.Error!.Value)
-            {
-                case CryptoUtils.CryptoError.Values.CryptoFailure:
-                    var ex = encryptResult.Error!.Exception!;
-                    throw ex;
-                default:
-                    throw new MorphicUnhandledErrorException();
-            }
-        }
-        var encryptedIdWithoutPrefix = encryptResult.Value!;
-
-        var encryptedId = PrefixUtils.CombinePrefixAndValue(prefix, encryptedIdWithoutPrefix);
-        return encryptedId;
-    }
-
-    //
-
     internal static async Task<MorphicResult<OAuthToken, LoadError>> LoadAsync(string id)
     {
         // connect to MongoDB
@@ -194,7 +144,7 @@ internal struct OAuthToken
             return MorphicResult.ErrorResult(LoadError.DatabaseFailure(ex));
         }
 
-        var encryptedId = await OAuthToken.EncryptIdAsync(id);
+        var encryptedId = await CryptoUtils.EncryptPrefixedValueAsync_Throws(AppSecrets.GetOAuthTokenIdCryptoKeyAndIVSecrets, id);
 
         // attempt to load the token from MongoDB
         MongoSerializedOAuthToken mongoSerializedOAuthToken;
