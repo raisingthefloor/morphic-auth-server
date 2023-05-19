@@ -208,6 +208,56 @@ internal class OAuthClient
 
     //
 
+    internal static async Task<MorphicResult<OAuthClient, LoadError>> LoadAsync(string clientId)
+    {
+        // connect to MongoDB
+        var mongoConnectionString = MorphicAuthServer.AppSecrets.GetMongoDbAuthConnectionStringSecret();
+        //
+        MongoClient mongoClient;
+        IMongoDatabase authDatabase;
+        IMongoCollection<MongoSerializedOAuthClient> oauthClientCollection;
+        try 
+        {
+            mongoClient = new MongoClient(mongoConnectionString);
+            authDatabase = mongoClient.GetDatabase("auth");
+            oauthClientCollection = authDatabase.GetCollection<MongoSerializedOAuthClient>("oauthclients");
+        }
+        catch (Exception ex)
+        {
+            return MorphicResult.ErrorResult(LoadError.DatabaseFailure(ex));
+        }
+
+        // attempt to load the client from MongoDB
+        MongoSerializedOAuthClient mongoSerializedOAuthClient;
+        try 
+        {
+            var filter = new BsonDocument { { "_id", clientId } };
+            var mongoCursor = await oauthClientCollection.FindAsync<MongoSerializedOAuthClient>(filter);
+            try 
+            {
+                mongoSerializedOAuthClient = mongoCursor.Single();
+            }
+            catch 
+            {
+                return MorphicResult.ErrorResult(LoadError.NotFound);
+            }
+        }
+        catch (Exception ex)
+        {
+            return MorphicResult.ErrorResult(LoadError.DatabaseFailure(ex));
+        }
+
+        // return the newly-created oauth client
+        var tryFromResult = await OAuthClient.TryFromAsync(mongoSerializedOAuthClient);
+        if (tryFromResult.IsError == true) 
+        {
+            return MorphicResult.ErrorResult(LoadError.DatabaseFailure(new FormatException()));
+        }
+        var oauthClient = tryFromResult.Value!;
+
+        return MorphicResult.OkResult(oauthClient);
+    }
+
     internal static async Task<MorphicResult<OAuthClient, CreateError>> CreateAsync(OAuthClientMetadata metadata, string regionId)
     {
         // verify that the region id can be parsed as an unsigned number

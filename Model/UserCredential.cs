@@ -29,6 +29,7 @@ using MongoDB.Driver;
 using Morphic.Core;
 using MorphicAuthServer.Model.UserCredentialDataObjects;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 internal record MongoSerializedUserCredential
@@ -179,6 +180,62 @@ internal struct UserCredential
         var userCredential = tryFromResult.Value!;
 
         return MorphicResult.OkResult(userCredential);
+    }
+
+    internal static async Task<MorphicResult<List<UserCredential>, LoadError>> LoadAllForUserAsync(string userId)
+    {
+        // connect to MongoDB
+        var mongoConnectionString = MorphicAuthServer.AppSecrets.GetMongoDbAuthConnectionStringSecret();
+        //
+        MongoClient mongoClient;
+        IMongoDatabase authDatabase;
+        IMongoCollection<MongoSerializedUserCredential> userCredentialCollection;
+        try
+        {
+            mongoClient = new MongoClient(mongoConnectionString);
+            authDatabase = mongoClient.GetDatabase("auth");
+            userCredentialCollection = authDatabase.GetCollection<MongoSerializedUserCredential>("user_credentials");
+        }
+        catch (Exception ex)
+        {
+            return MorphicResult.ErrorResult(LoadError.DatabaseFailure(ex));
+        }
+
+        // attempt to load the user credential from MongoDB
+        List<MongoSerializedUserCredential> mongoSerializedUserCredentials;
+        try
+        {
+            var filter = new BsonDocument { { "user_id", userId } };
+            var mongoCursor = await userCredentialCollection.FindAsync<MongoSerializedUserCredential>(filter);
+            try
+            {
+                mongoSerializedUserCredentials = mongoCursor.ToList();
+            }
+            catch
+            {
+                return MorphicResult.ErrorResult(LoadError.NotFound);
+            }
+        }
+        catch (Exception ex)
+        {
+            return MorphicResult.ErrorResult(LoadError.DatabaseFailure(ex));
+        }
+
+        // return the newly-created user credentials
+        List<UserCredential> userCredentials = new();
+        foreach (var mongoSerializedUserCredential in mongoSerializedUserCredentials) 
+        {
+            var tryFromResult = UserCredential.TryFrom(mongoSerializedUserCredential);
+            if (tryFromResult.IsError == true)
+            {
+                return MorphicResult.ErrorResult(LoadError.DatabaseFailure(new FormatException()));
+            }
+            var userCredential = tryFromResult.Value!;
+
+            userCredentials.Add(userCredential);
+        }
+
+        return MorphicResult.OkResult(userCredentials);
     }
 
     internal static async Task<MorphicResult<UserCredential, CreateError>> CreateAsync(string regionId, string userId, string type, IUserCredentialData data)

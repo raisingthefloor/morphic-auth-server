@@ -192,6 +192,59 @@ internal struct User
         return MorphicResult.OkResult(user);
     }
 
+    internal static async Task<MorphicResult<User, LoadError>> LoadAsync(UserEmailAddress emailAddress)
+    {
+        // connect to MongoDB
+        var mongoConnectionString = MorphicAuthServer.AppSecrets.GetMongoDbAuthConnectionStringSecret();
+        //
+        MongoClient mongoClient;
+        IMongoDatabase authDatabase;
+        IMongoCollection<MongoSerializedUser> userCollection;
+        try
+        {
+            mongoClient = new MongoClient(mongoConnectionString);
+            authDatabase = mongoClient.GetDatabase("auth");
+            userCollection = authDatabase.GetCollection<MongoSerializedUser>("users");
+        }
+        catch (Exception ex)
+        {
+            return MorphicResult.ErrorResult(LoadError.DatabaseFailure(ex));
+        }
+
+        // convert the email address to a case-insensitive hash
+        var mongoSerializedUserEmailAddress = await MongoSerializedUserEmailAddress.FromAsync(emailAddress)!;
+
+        // attempt to load the user from MongoDB
+        MongoSerializedUser mongoSerializedUser;
+        try
+        {
+            var filter = new BsonDocument { { "email_address.case_insensitive_hash", mongoSerializedUserEmailAddress.CaseInsensitiveHash } };
+            var mongoCursor = await userCollection.FindAsync<MongoSerializedUser>(filter);
+            try
+            {
+                mongoSerializedUser = mongoCursor.Single();
+            }
+            catch
+            {
+                return MorphicResult.ErrorResult(LoadError.NotFound);
+            }
+        }
+        catch (Exception ex)
+        {
+            return MorphicResult.ErrorResult(LoadError.DatabaseFailure(ex));
+        }
+
+        // return the newly-created user
+        var tryFromResult = await User.TryFromAsync(mongoSerializedUser);
+        if (tryFromResult.IsError == true)
+        {
+            return MorphicResult.ErrorResult(LoadError.DatabaseFailure(new FormatException()));
+        }
+        var user = tryFromResult.Value!;
+
+        return MorphicResult.OkResult(user);
+    }
+
     internal static async Task<MorphicResult<User, CreateError>> CreateAsync(string regionId, UserEmailAddress? emailAddress)
     {
         // connect to MongoDB
