@@ -67,6 +67,13 @@ namespace MorphicAuthServer
             app.UseEndpoints(endpoints =>
             {
 
+                /* RFC 6749: The OAuth 2.0 Authorization Framework */
+                // token endpoint
+                endpoints.MapPost("/oauth/token", async (context) => 
+                {
+                    await OAuthServiceEndpoints.ObtainAccessTokenAsync(context, this.Configuration);
+                });
+
                 /* RFC 7591: OAuth 2.0 Dynamic Registration */
                 // client registration endpoint
                 endpoints.MapPost("/oauth/register", async (context) => 
