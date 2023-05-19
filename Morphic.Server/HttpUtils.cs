@@ -222,14 +222,24 @@ internal struct HttpUtils
     
     public static MorphicResult<MorphicUnit, VerifyAcceptHeaderError> VerifyAcceptHeader(HttpContext context, string requiredContentType)
     {
-        // verify that the accept header is valid
-        var acceptContentTypes = (ICollection<String>)context.Request.Headers["Accept"];
-        if (acceptContentTypes.Contains(requiredContentType) == false)
-        {
-            return MorphicResult.ErrorResult(VerifyAcceptHeaderError.ContentTypeUnsupported(requiredContentType));
+        var acceptContentTypes = context.Request.Headers.Accept;
+
+        foreach (var acceptContentType in acceptContentTypes) {
+            if (acceptContentType == requiredContentType) {
+                return MorphicResult.OkResult();
+            }
+            if (acceptContentType == "*/*") {
+                return MorphicResult.OkResult();
+            }
         }
 
-        return MorphicResult.OkResult();
+        // if no matching media types were provided, return the "content type unsupported" error condition
+        return MorphicResult.ErrorResult(VerifyAcceptHeaderError.ContentTypeUnsupported(requiredContentType));
+    }
+
+    public static bool AcceptHeaderIsPresent(HttpContext context)
+    {
+        return (context.Request.Headers.Accept.Count > 0);
     }
 
     //
@@ -421,6 +431,29 @@ internal struct HttpUtils
 
     //
 
+    public static async Task WriteHttpUnauthorizedJsonErrorResponseAsync(HttpContext context, string errorJson, string wwwAuthenticateHeader = "Bearer")
+    {
+        var httpErrorResponse = new HttpUtils.HttpErrorResponse(
+            HttpUtils.HttpResponseCode.HTTP_401_UNAUTHORIZED,
+            HttpContentTypeAsString.Json,
+            errorJson);
+        context.Response.Headers["WWW-Authenticate"] = wwwAuthenticateHeader;
+        await HttpUtils.WriteHttpErrorResponseAsync(context, httpErrorResponse);
+    }
+
+    public static async Task WriteHttpUnauthorizedErrorResponseAsync(HttpContext context, string? errorText = null, string? wwwAuthenticateHeader = null)
+    {
+        var httpErrorResponse = new HttpUtils.HttpErrorResponse(
+            HttpUtils.HttpResponseCode.HTTP_401_UNAUTHORIZED,
+            (errorText is not null) ? "text/plain" : null,
+            errorText ?? string.Empty);
+        if (wwwAuthenticateHeader is not null) 
+        {
+            context.Response.Headers["WWW-Authenticate"] = wwwAuthenticateHeader;
+        }
+        await HttpUtils.WriteHttpErrorResponseAsync(context, httpErrorResponse);
+    }
+
     public static void SetHttpResponseStatusToUnauthorized(HttpContext context, string wwwAuthenticateHeader = "Bearer")
     {
         context.Response.StatusCode = (int)HttpResponseCode.HTTP_401_UNAUTHORIZED;
@@ -450,6 +483,77 @@ internal struct HttpUtils
         {
             return null;
         }
+    }
+
+    public record ExtractUsernameAndPasswordError : MorphicAssociatedValueEnum<ExtractUsernameAndPasswordError.Values>
+    {
+        // enum members
+        public enum Values
+        {
+            AuthorizationSchemeMustBeBasic,
+            BasicAuthorizationValueIsNotBase64Encoded,
+            MultipleAuthorizationHeadersAreNotAllowed,
+            NoAuthorizationHeader,
+            UsernameAndPasswordAreMalformed,
+        }
+
+        //
+
+        // functions to create member instances
+        public static ExtractUsernameAndPasswordError AuthorizationSchemeMustBeBasic => new(Values.AuthorizationSchemeMustBeBasic);
+        public static ExtractUsernameAndPasswordError BasicAuthorizationValueIsNotBase64Encoded => new(Values.BasicAuthorizationValueIsNotBase64Encoded);
+        public static ExtractUsernameAndPasswordError MultipleAuthorizationHeadersAreNotAllowed => new(Values.MultipleAuthorizationHeadersAreNotAllowed);
+        public static ExtractUsernameAndPasswordError NoAuthorizationHeader => new(Values.NoAuthorizationHeader);
+        public static ExtractUsernameAndPasswordError UsernameAndPasswordAreMalformed => new(Values.UsernameAndPasswordAreMalformed);
+
+        // associated values
+
+        // verbatim required constructor implementation for MorphicAssociatedValueEnums
+        private ExtractUsernameAndPasswordError(Values value) : base(value) { }
+    }
+    public struct ExtractUsernameAndPasswordResult
+    {
+        public string Username;
+        public string Password;
+    }
+    public static MorphicResult<ExtractUsernameAndPasswordResult, ExtractUsernameAndPasswordError> ExtractUsernameAndPasswordFromBasicAuthorizationHeaderValue(HttpContext context) 
+    {
+        var authorizationHeaders = context.Request.Headers.Authorization;
+        if (authorizationHeaders.Count == 0)  
+        {
+            return MorphicResult.ErrorResult(ExtractUsernameAndPasswordError.NoAuthorizationHeader);
+        } 
+        else if (authorizationHeaders.Count > 1) 
+        {
+            // NOTE: our current implementation explicitly supports only one authorization header
+            return MorphicResult.ErrorResult(ExtractUsernameAndPasswordError.MultipleAuthorizationHeadersAreNotAllowed);
+        }
+
+        var authorizationHeader = authorizationHeaders[0]!;
+        if (authorizationHeader.ToLowerInvariant().StartsWith("basic") == false)
+        {
+            return MorphicResult.ErrorResult(ExtractUsernameAndPasswordError.AuthorizationSchemeMustBeBasic);
+        }
+
+        var encodedUsernameAndPassword = authorizationHeader.Substring("Basic".Length).Trim();
+        string decodedUsernameAndPassword;
+        try 
+        {
+            decodedUsernameAndPassword = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encodedUsernameAndPassword));
+        }
+        catch
+        {
+            return MorphicResult.ErrorResult(ExtractUsernameAndPasswordError.BasicAuthorizationValueIsNotBase64Encoded);
+        }
+        var indexOfSeparator = decodedUsernameAndPassword.IndexOf(':');
+        if (indexOfSeparator < 0)
+        {
+            return MorphicResult.ErrorResult(ExtractUsernameAndPasswordError.UsernameAndPasswordAreMalformed);
+        }
+        var username = decodedUsernameAndPassword.Substring(0, indexOfSeparator);
+        var password = decodedUsernameAndPassword.Substring(indexOfSeparator + 1);
+
+        return MorphicResult.OkResult(new ExtractUsernameAndPasswordResult() { Username = username, Password = password });
     }
 
     //

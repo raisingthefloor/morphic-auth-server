@@ -393,7 +393,7 @@ public struct CryptoUtils
                     );
 
                     // compare verifyHash with hash
-                    var hashMatches = (verifyHash.SequenceEqual(hash) == false);
+                    var hashMatches = verifyHash.SequenceEqual(hash);
 
                     return hashMatches;
                 }

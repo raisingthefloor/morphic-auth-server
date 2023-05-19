@@ -29,7 +29,7 @@ using Morphic.Core;
 using Morphic.OAuth;
 using System.Collections.Generic;
 
-public struct OAuthClientMetadata
+public class OAuthClientMetadata
 {
     [BsonElement("redirect_uris"), BsonIgnoreIfNull]
     public List<string>? RedirectUris;
@@ -88,7 +88,7 @@ public struct OAuthClientMetadata
     }
 }
 
-internal struct MongoSerializedOAuthClientMetadata 
+internal class MongoSerializedOAuthClientMetadata 
 {
     [BsonElement("redirect_uris"), BsonIgnoreIfNull]
     public List<string>? RedirectUris;
