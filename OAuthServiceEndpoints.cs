@@ -448,7 +448,7 @@ internal struct OAuthServiceEndpoints {
                             error_description = "The authorization header is malformed."
                         };
                         await HttpUtils.WriteHttpUnauthorizedJsonErrorResponseAsync(context, JsonSerializer.Serialize(clientRegistrationErrorResponseContent), "Bearer");
-                        break;
+                        return;
                     }
                 case HttpUtils.ExtractUsernameAndPasswordError.Values.MultipleAuthorizationHeadersAreNotAllowed:
                     {
