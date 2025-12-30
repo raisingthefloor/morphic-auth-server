@@ -1,4 +1,4 @@
-# Copyright 2022-2023 Raising the Floor - US, Inc.
+# Copyright 2022-2025 Raising the Floor - US, Inc.
 #
 # Licensed under the New BSD license. You may not use this file except in
 # compliance with this License.
@@ -21,12 +21,18 @@
 # * Adobe Foundation
 # * Consumer Electronics Association Foundation
 
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
+#see: https://github.com/dotnet/dotnet-docker/blob/main/README.sdk.md & https://mcr.microsoft.com/artifact/mar/dotnet/sdk/tags
+ARG SDK_VERSION=10.0.101-alpine3.23
+#
+#see: https://github.com/dotnet/dotnet-docker/blob/main/README.aspnet.md & https://mcr.microsoft.com/artifact/mar/dotnet/aspnet/tags
+ARG ASPNET_VERSION=10.0.1-alpine3.23
+
+FROM mcr.microsoft.com/dotnet/aspnet:${ASPNET_VERSION} AS base
 WORKDIR /app
 EXPOSE 80
 EXPOSE 443
 
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:${SDK_VERSION} AS build
 WORKDIR /src
 COPY ["MorphicAuthServer.csproj", "."]
 RUN dotnet restore "./MorphicAuthServer.csproj"
